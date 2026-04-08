@@ -14,7 +14,7 @@ import json
 import shutil
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from tools.base_tool import (
     BaseTool,
@@ -28,6 +28,10 @@ from tools.base_tool import (
     ToolStatus,
     ToolTier,
 )
+
+if TYPE_CHECKING:
+    import numpy as np
+    from PIL import Image
 
 
 class GreenScreenComposite(BaseTool):
@@ -121,7 +125,7 @@ class GreenScreenComposite(BaseTool):
 
     def _has_pil_numpy(self) -> bool:
         try:
-            import numpy  # noqa: F401
+            import numpy as np  # noqa: F401
             from PIL import Image  # noqa: F401
             return True
         except ImportError:
@@ -262,7 +266,7 @@ class GreenScreenComposite(BaseTool):
             # Step 7: Clean up temp directories
             self._cleanup_temp(temp_dir)
 
-    def _parse_hex_color(self, hex_str: str) -> Any:
+    def _parse_hex_color(self, hex_str: str) -> np.ndarray:
         """Parse a hex color string like '#0E172A' to an RGB numpy array."""
         import numpy as np
         hex_str = hex_str.lstrip("#")
@@ -324,16 +328,16 @@ class GreenScreenComposite(BaseTool):
 
     def _composite_frame(
         self,
-        speaker_img: Any,
-        bg_img: Any,
-        bg_color: Any,
+        speaker_img: Image.Image,
+        bg_img: Image.Image,
+        bg_color: np.ndarray,
         *,
         layout: str,
         speaker_scale: float,
         bg_shift_up: int,
         out_w: int,
         out_h: int,
-    ) -> Any:
+    ) -> Image.Image:
         """Composite a single speaker frame over a background frame using the given layout."""
         import numpy as np
         from PIL import Image
