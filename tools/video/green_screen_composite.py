@@ -16,9 +16,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-from PIL import Image
-
 from tools.base_tool import (
     BaseTool,
     Determinism,
@@ -28,6 +25,7 @@ from tools.base_tool import (
     ResumeSupport,
     ToolResult,
     ToolStability,
+    ToolStatus,
     ToolTier,
 )
 
@@ -121,7 +119,24 @@ class GreenScreenComposite(BaseTool):
         "Verify audio is synced if original_audio_path was provided",
     ]
 
+    def _has_pil_numpy(self) -> bool:
+        try:
+            import numpy  # noqa: F401
+            from PIL import Image  # noqa: F401
+            return True
+        except ImportError:
+            return False
+
+    def get_status(self) -> ToolStatus:
+        return ToolStatus.AVAILABLE if self._has_pil_numpy() else ToolStatus.UNAVAILABLE
+
     def execute(self, inputs: dict[str, Any]) -> ToolResult:
+        if not self._has_pil_numpy():
+            return ToolResult(
+                success=False,
+                error="numpy and Pillow are required: pip install numpy Pillow",
+            )
+
         speaker_path = Path(inputs["speaker_path"])
         background_path = Path(inputs["background_path"])
         output_path = Path(inputs["output_path"])
@@ -193,6 +208,7 @@ class GreenScreenComposite(BaseTool):
             log_interval = max(1, frame_count // 10)
 
             # Step 4: Composite each frame pair
+            from PIL import Image
             for i in range(frame_count):
                 if i % log_interval == 0:
                     print(f"[green_screen_composite] Compositing frame {i + 1}/{frame_count}")
@@ -246,8 +262,9 @@ class GreenScreenComposite(BaseTool):
             # Step 7: Clean up temp directories
             self._cleanup_temp(temp_dir)
 
-    def _parse_hex_color(self, hex_str: str) -> np.ndarray:
+    def _parse_hex_color(self, hex_str: str) -> Any:
         """Parse a hex color string like '#0E172A' to an RGB numpy array."""
+        import numpy as np
         hex_str = hex_str.lstrip("#")
         r = int(hex_str[0:2], 16)
         g = int(hex_str[2:4], 16)
@@ -307,17 +324,19 @@ class GreenScreenComposite(BaseTool):
 
     def _composite_frame(
         self,
-        speaker_img: Image.Image,
-        bg_img: Image.Image,
-        bg_color: np.ndarray,
+        speaker_img: Any,
+        bg_img: Any,
+        bg_color: Any,
         *,
         layout: str,
         speaker_scale: float,
         bg_shift_up: int,
         out_w: int,
         out_h: int,
-    ) -> Image.Image:
+    ) -> Any:
         """Composite a single speaker frame over a background frame using the given layout."""
+        import numpy as np
+        from PIL import Image
         # Create alpha mask from speaker frame
         speaker_arr = np.array(speaker_img).astype(float)
         dist = np.sqrt(np.sum((speaker_arr - bg_color.astype(float)) ** 2, axis=2))
